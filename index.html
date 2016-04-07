@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title></title>
+	<link rel="stylesheet" href="">
+</head>
+<body>
+<canvas id="plot">Обновите браузер</canvas>
+<script>
+//requestAnimationFrame
+!function(){for(var n=0,i=["ms","moz","webkit","o"],e=0;e<i.length&&!window.requestAnimationFrame;++e)window.requestAnimationFrame=window[i[e]+"RequestAnimationFrame"],window.cancelAnimationFrame=window[i[e]+"CancelAnimationFrame"]||window[i[e]+"CancelRequestAnimationFrame"];window.requestAnimationFrame||(window.requestAnimationFrame=function(i,e){var a=(new Date).getTime(),o=Math.max(0,16-(a-n)),t=window.setTimeout(function(){i(a+o)},o);return n=a+o,t}),window.cancelAnimationFrame||(window.cancelAnimationFrame=function(n){clearTimeout(n)})}();
+
+	var max = Math.max;
+	var min = Math.min;
+	var sprite_size = 30;
+	var bullets_count = 10;
+	var global_speed = 2;
+	var global_guid = 0;
+
+	var game_map = [
+		[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+		[1,0,0,1,1,3,1,1,3,0,0,3,0,0,3,0,0,0,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,1,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,0,1,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,0,3,0,0,0,1],
+		[1,0,0,0,1,1,1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1],
+		[1,0,0,1,0,0,0,0,9,0,1,1,1,1,1,0,0,0,0,0,0,0,0,1,0,0,1],
+		[1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+		[1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+		[1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1],
+		[1,0,0,1,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+		[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+		[1,1,1,1,1,1,1,1,1,1,1,1,33,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+	];
+
+	var game_height = sprite_size * game_map.length;
+	var game_width = sprite_size * game_map[0].length;
+
+	var lastkey = '';
+
+
+	var deg = Math.PI / 180;
+
+	var plot = document.getElementById("plot");
+	var ctx	= plot.getContext('2d');
+	plot.style.display = 'block';
+	plot.width = game_width;
+	plot.height = game_height;
+
+	var img_tank = new Image();
+	img_tank.src = 'tank.png';
+
+	var img_wall = new Image();
+	img_wall.src = 'wall.png';
+
+	var tanks = [];
+	var walls = [];
+	var previous = [];
+
+	var basa;
+
+	function rand(m, mi){
+		mi = mi || 0;
+		return Math.random() * (m - mi) + mi;
+	}
+
+    function computeFPS() {
+        if (previous.length > 60) {
+            previous.splice(0, 1);
+        }
+        var start = (new Date).getTime();
+        previous.push(start);
+        var sum = 0;
+
+        for (var id = 0; id < previous.length - 1; id++) {
+            sum += previous[id + 1] - previous[id];
+        }
+
+        return (1000.0 / (sum / previous.length)) >> 0;
+    }
+
+	var findShortestPath = function(x, y, x2, y2, orig_grid) {
+		var distanceFromTop = x;
+		var distanceFromLeft = y;
+
+		var grid = JSON.parse(JSON.stringify(orig_grid));
+
+		grid[x2][y2] = 99;
+
+		var location = { distanceFromTop: distanceFromTop, distanceFromLeft: distanceFromLeft, path: [], status: 'Start' };
+
+		var queue = [location, location];
+
+		var exploreInDirection = function(currentLocation, direction, grid) {
+			var newPath = currentLocation.path.slice();
+			newPath.push(direction);
+
+			var dft = currentLocation.distanceFromTop;
+			var dfl = currentLocation.distanceFromLeft;
+
+			var locationStatus = function(location, grid) {
+				var gridSize = grid.length;
+				var dft = location.distanceFromTop;
+				var dfl = location.distanceFromLeft;
+
+				if (location.distanceFromLeft < 0 || location.distanceFromLeft >= gridSize || location.distanceFromTop < 0 || location.distanceFromTop >= gridSize) {
+					// location is not on the grid--return false
+					return 'Invalid';
+				} else if (grid[dft][dfl] === 99) {
+					return 'Goal';
+				} else if (grid[dft][dfl] !== 0) {
+					// location is either an obstacle or has been visited
+					return 'Blocked';
+				} else {
+					return 'Valid';
+				}
+			};
+
+		  	if (direction === 'North') {
+		    	dft -= 1;
+		  	} else if (direction === 'East') {
+		    	dfl += 1;
+		  	} else if (direction === 'South') {
+		    	dft += 1;
+		  	} else if (direction === 'West') {
+		    	dfl -= 1;
+		  	}
+
+		  	var newLocation = { distanceFromTop: dft, distanceFromLeft: dfl, path: newPath, status: 'Unknown' };
+		  	newLocation.status = locationStatus(newLocation, grid);
+
+		  	if (newLocation.status === 'Valid') {
+		    	grid[newLocation.distanceFromTop][newLocation.distanceFromLeft] = 'Visited';
+		  	}
+
+		  	return newLocation;
+		};  
+
+		while (queue.length > 0) {
+			var currentLocation = queue.shift();
+
+			var newLocation = exploreInDirection(currentLocation, 'North', grid);
+			if (newLocation.status === 'Goal') {
+		  		return newLocation.path;
+			} else if (newLocation.status === 'Valid') {
+		  		queue.push(newLocation);
+			}
+
+			// Explore East
+			var newLocation = exploreInDirection(currentLocation, 'East', grid);
+			if (newLocation.status === 'Goal') {
+		  		return newLocation.path;
+			} else if (newLocation.status === 'Valid') {
+		  		queue.push(newLocation);
+			}
+
+			// Explore South
+			var newLocation = exploreInDirection(currentLocation, 'South', grid);
+			if (newLocation.status === 'Goal') {
+		  		return newLocation.path;
+			} else if (newLocation.status === 'Valid') {
+		  		queue.push(newLocation);
+			}
+
+			// Explore West
+			var newLocation = exploreInDirection(currentLocation, 'West', grid);
+			if (newLocation.status === 'Goal') {
+		  		return newLocation.path;
+			} else if (newLocation.status === 'Valid') {
+		  		queue.push(newLocation);
+			}
+		}
+
+		return false;
+	};
+
+	var wall = function(x, y){
+		this.x = x || 0;
+		this.y = y || 0;
+	}
+
+	wall.prototype = {
+		intersect : function(x, y){
+			return !( x > this.right || this.left > x + 1 || y > this.bottom || this.top > y + 1 ); 
+		},
+		draw : function(){
+		    ctx.drawImage(img_wall, this.x, this.y, sprite_size, sprite_size);
+			ctx.beginPath();
+			ctx.lineWidth="1";
+			if(this.hitted){
+				ctx.strokeStyle="blue";
+			}else{
+				ctx.strokeStyle="red";
+			}
+			ctx.rect(this.x + 1, this.y + 1, sprite_size - 1, sprite_size - 1);
+			ctx.stroke(); 
+			this.left = this.x + 1;
+			this.top = this.y + 1;
+			this.right = this.x + sprite_size - 1;
+			this.bottom = this.y + sprite_size - 1;
+		},
+	}
+
+	var tank = function(x, y){
+		this.x = (typeof(x) != 'undefined') ? x : rand(game_width);
+		this.y = (typeof(y) != 'undefined') ? y : rand(game_height);
+		this.direction = 0;
+		this.speed = 1;
+		this.guid = global_guid;
+		global_guid++;
+		this.bullets_interval = 0;
+	}
+
+	tank.prototype = {
+		ai : function(){
+
+			if (typeof(this.bullets) == 'undefined'){
+				this.bullets = [];
+				for(var i = 0; i < bullets_count; i++){
+					this.bullets.push(new bullet(this.guid, this.x + sprite_size / 2, this.y + sprite_size / 2 ))
+				}
+			}
+
+			var srcx = (this.y / sprite_size) >> 0;
+			var srcy = (this.x / sprite_size) >> 0
+			var tarx = (basa.y / sprite_size) >> 0;
+			var tary = (basa.x / sprite_size) >> 0;
+
+			var path = findShortestPath(srcx, srcy, tarx , tary, game_map);
+			
+			if(path && path.length > 1){
+
+				var sx = (this.x / sprite_size) >> 0, sy = (this.y / sprite_size) >> 0;
+
+				if(path[0] == 'West'){
+					sx--;
+				} else if (path[0] == 'South'){
+					sy++;
+				} else if (path[0] == 'East'){
+					sx++;
+				} else if (path[0] == 'North'){
+					sy--;
+				}
+
+				sx = sx * sprite_size;
+				sy = sy * sprite_size;
+
+				if(this.x > sx){
+					this.direction = 90;
+					this.x-= this.speed;
+					return;
+				} else if (this.y < sy){
+					this.direction = 0;
+					this.y+= this.speed;
+					return;
+				} else if (this.x < sx){
+					this.direction = -90;
+					this.x+= this.speed;
+					return;
+				} else if (this.y > sy){
+					this.direction = 180;
+					this.y-= this.speed;
+					return;
+				}
+			}
+
+		},
+
+		collide : function(){
+			this.left = this.x;
+			this.top = this.y;
+			this.right = this.x + sprite_size;
+			this.bottom = this.y + sprite_size;
+
+			var blocks = { left:false, right: false, up: false, down: false };
+
+			for(var i = 0; i < walls.length; i++){
+				var w = walls[i];
+
+				for(var j = 0; j < sprite_size; j++){
+					if (w.intersect(this.left + j, this.bottom + 1)){
+						blocks.down = true;
+					}
+
+					if (w.intersect(this.left + j, this.top - 1)){
+						blocks.up = true;
+					}
+
+					if (w.intersect(this.left - 1, this.top + j)){
+						blocks.left = true;
+					}
+
+					if (w.intersect(this.right + 1, this.top + j)){
+						blocks.right = true;
+					}
+				}
+			}
+
+			return blocks;
+		},
+		intersect : function(x, y){
+			return !( x > this.right || this.left > x + 1 || y > this.bottom || this.top > y + 1 ); 
+		},
+		draw : function(){
+			ctx.save();
+	    	ctx.translate(this.x, this.y);
+	    	ctx.translate(sprite_size >> 1, sprite_size >> 1); 
+	    	ctx.rotate(this.direction * deg);
+		    ctx.drawImage(img_tank, -sprite_size >> 1, -sprite_size >> 1, sprite_size, sprite_size);
+		    ctx.restore();
+
+			if(this.bullets){
+				for(var i = 0; i < this.bullets.length; i++){
+					this.bullets[i].draw();
+				}
+			}
+		},
+	}
+
+	var bullet = function(guid, x, y){
+		this.guid = guid;
+		this.x = x;
+		this.y = y;
+		this.direction = 0;
+		this.use = false;
+	}
+
+	bullet.prototype = {
+		draw : function(){
+			if(this.use){
+				if (this.direction == 90){
+					this.x-= global_speed;
+				} else if(this.direction == -90){
+					this.x += global_speed;
+				} else if(this.direction == 180){
+					this.y-= global_speed;
+				} else if(this.direction == 0){
+					this.y+= global_speed;
+				}
+
+				if (this.y <= 0 || this.y > game_height || this.x < 0 || this.x > game_width) {
+					this.use = false;
+				}
+
+				for(var i = 0; i < tanks.length; i++){
+					var t = tanks[i];
+					if(t.guid != this.guid){
+						if(!t.died && !t.explosion) {
+							if ( t.intersect(this.x, this.y) ){
+								this.use = false;
+							}
+						}
+			    	}
+				}
+
+				for(var i = 0; i < walls.length; i++){
+		    		if(!walls[i].died && !walls[i].explosion) {
+						if ( walls[i].intersect(this.x, this.y) ){
+							this.use = false;
+						}
+		    		}
+				}
+
+				ctx.fillStyle="yellow";
+				ctx.fillRect(this.x, this.y, sprite_size>>1>>1>>1, sprite_size>>1>>1>>1);
+			}
+		},
+	}
+
+	var maintank = new tank();
+	maintank.main = true;
+	tanks.push(maintank)
+
+	for(var i = 0; i < game_map.length; i++){
+		for(var j = 0; j < game_map[i].length; j++){
+			if (game_map[i][j] == 9){
+				maintank.x = j * sprite_size;
+				maintank.y = i * sprite_size;
+				game_map[i][j] = 0;
+				break;
+			} else if (game_map[i][j] == 3){
+				tanks.push(new tank(j * sprite_size, i * sprite_size))
+				game_map[i][j] = 0;
+			}
+		}
+	}
+
+	var movekey = '';
+	var shotkey = false;
+
+	maintank.bullets = [];
+
+	for(var i=0; i < bullets_count; i++){
+		maintank.bullets.push(new bullet(maintank.guid, maintank.x + sprite_size / 2, maintank.y + sprite_size / 2));
+	}
+
+    window.addEventListener('keyup', function (e) {
+        var intKey = (window.Event) ? e.which : e.charCode;
+        if(intKey == 37 || intKey == 38 || intKey == 39 || intKey == 40){
+	        movekey = '';
+        } else if(intKey == 32) {
+        	shotkey = false;
+        }
+    }, false)
+
+    window.addEventListener('keydown', function (e) {
+        var intKey = (window.Event) ? e.which : e.charCode;
+
+        if(intKey == 37){ // left
+        	movekey = 'left'
+        	lastkey = 'left'
+        } else if(intKey == 39) { // right
+        	movekey = 'right'
+        	lastkey = 'right'
+        } else if(intKey == 38) { // right
+        	movekey = 'up'
+        	lastkey = 'up'
+        } else if(intKey == 40) { // right
+        	movekey = 'down'
+        	lastkey = 'down'
+        } else if(intKey == 32) { // space
+        	shotkey = true
+        	if((new Date()).getTime() - maintank.bullets_interval > rand(1600, 1500)){
+        		for(var i=0; i < maintank.bullets.length; i++){
+	        		if(!maintank.bullets[i].use){
+	        			maintank.bullets[i].use = true;
+	        			maintank.bullets[i].x = maintank.x + sprite_size / 2;
+	        			maintank.bullets[i].y = maintank.y + sprite_size / 2;
+	        			maintank.bullets[i].direction = maintank.direction;
+	        			return;
+	        		}
+	        	}
+	        	
+		        maintank.bullets_interval = (new Date()).getTime();
+	        }
+
+        }
+    }, false)
+
+
+    maintank.bullets_interval = 0;
+
+	for(var i = 0; i < game_map.length; i++){
+		for(var j = 0; j < game_map[i].length; j++){
+			if (game_map[i][j] == 1){
+				walls.push(new wall(j * sprite_size, i * sprite_size));
+			} else if(game_map[i][j] == 33){
+				basa = new wall(j * sprite_size, i * sprite_size);
+				basa.base = true;
+				walls.push(basa);
+			}
+		}
+	}
+
+
+	var animloop = function(){
+	  	requestAnimationFrame(animloop);
+
+	  	var blocks = maintank.collide();
+
+	  	//console.log(blocks)
+
+		if (movekey == 'left' && !blocks.left){
+			maintank.direction = 90;
+			maintank.x-= global_speed;
+		} else if(movekey == 'right' && !blocks.right){
+			maintank.direction = -90;
+			maintank.x += global_speed;
+		} else if(movekey == 'up' && !blocks.up){
+			maintank.direction = 180;
+			maintank.y-= global_speed;
+		} else if(movekey == 'down' && !blocks.down){
+			maintank.direction = 0;
+			maintank.y+= global_speed;
+		}
+
+
+		ctx.fillStyle = 'black';
+		ctx.fillRect(0, 0, game_width, game_height);
+
+		for(var i = 0; i < walls.length; i++){
+			walls[i].draw();
+		}
+
+		for(var i = 0; i < tanks.length; i++){
+			if(!tanks[i].main){
+				tanks[i].ai();
+			}
+			tanks[i].draw();
+		}
+
+		maintank.bullets.sort(function(a, b){
+			return a.use > b.use
+		});
+
+		for(var i=0; i < 8; i++){
+			if (!maintank.bullets[i].use){
+				ctx.fillStyle= "yellow";
+			} else {
+				ctx.fillStyle= "darkgrey";
+			}
+			ctx.fillRect(20 + i * 10, 20, 8, 8);
+		}
+
+
+		ctx.fillStyle = '#fff';
+		ctx.font = "11px Arial";
+		ctx.fillText(computeFPS() + ' fps', game_width - 40, 12);
+
+	}
+
+	animloop();
+
+
+</script>	
+</body>
+</html>
