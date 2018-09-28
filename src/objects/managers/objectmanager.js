@@ -10,5 +10,7 @@ export default class ObjectManager {
     this.globalGuid++;
   };
 
+  calculate = () => this.objects.forEach((o) => o.calculate());
+
   draw = () => this.objects.forEach((o) => o.draw());
 }

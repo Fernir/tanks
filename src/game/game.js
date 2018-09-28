@@ -1,50 +1,49 @@
 import ctx from './ctx';
-import {computeFPS} from './helpers';
-import gameMap from './../data/data';
-import keyboard, {MOVE_LEFT, MOVE_RIGHT, MOVE_DOWN, MOVE_UP} from './keyboard';
-import wallsManager from '../objects/managers/wallmanager';
-import tanksManager from '../objects/managers/tankmanager';
-import Tank from '../objects/tank';
+import keyboard from './keyboard';
+import levelDraw from './level/levelDraw';
+import unitManager from '../objects/managers/unitmanager';
+import Unit from '../objects/unit';
+import Level from './level/level';
 
 class Game {
-  spriteSize = 40;
-  halfSpriteSize = this.spriteSize / 2;
-  ctx = null;
+  gl = null;
+  canvas = null;
+  level = null;
+  textureSize = 10;
+  tankOffset = 0.25;
+  camera = null;
+  zPos = 1;
 
-  gameHeight = () => this.spriteSize * gameMap.length;
-  gameWidth = () => this.spriteSize * gameMap[0].length;
+  gameHeight = () => window.innerHeight / 3;
+  gameWidth = () => window.innerWidth / 3;
 
   animationLoop = () => {
-    const player = tanksManager.player;
-    const blocks = player.collide();
-    const curKey = String(keyboard.moveKey);
+    const player = unitManager.player;
 
-    if (curKey === MOVE_LEFT && !blocks.left) {
-      player.direction = 90;
-      player.x -= player.speed;
-    } else if (curKey === MOVE_RIGHT && !blocks.right) {
-      player.direction = -90;
-      player.x += player.speed;
-    } else if (curKey === MOVE_UP && !blocks.up) {
-      player.direction = 180;
-      player.y -= player.speed;
-    } else if (curKey === MOVE_DOWN && !blocks.down) {
-      player.direction = 0;
-      player.y += player.speed;
+    player.rotate = 0;
+    player.direction.set(0, 0);
+    player.shot = 0;
+
+    if (keyboard.keys && keyboard.keys[37]) {
+      player.rotate = 6;
+    }
+    if (keyboard.keys && keyboard.keys[39]) {
+      player.rotate = -6;
+    }
+    if (keyboard.keys && keyboard.keys[38]) {
+      player.direction.add2(0, -1);
+    }
+    if (keyboard.keys && keyboard.keys[40]) {
+      player.direction.add2(0, 1);
+    }
+    if (keyboard.keys && keyboard.keys[33]) {
+      player.shot = 1;
     }
 
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0, 0, this.gameWidth(), this.gameHeight());
-
-    tanksManager.draw();
-    wallsManager.draw();
-
-    this.ctx.fillStyle = '#fff';
-    this.ctx.font = '11px Arial';
-    this.ctx.fillText(`${computeFPS()} fps`, this.gameWidth() - 40, 12);
-
-    this.ctx.font = '16px Arial bold';
-    this.ctx.fillText('Click anywhere to add tank', this.gameWidth() - 220, 60);
+    unitManager.calculate();
+    levelDraw.draw();
+    unitManager.draw();
+    levelDraw.renderMinimap();
 
     if (window.requestAnimationFrame) {
       window.requestAnimationFrame(this.animationLoop);
@@ -52,15 +51,21 @@ class Game {
   };
 
   init = () => {
-    this.ctx = ctx.init();
+    this.gl = ctx.init();
+    this.canvas = ctx.canvas;
 
-    ctx.plot.addEventListener('click', (e) => {
-      tanksManager.add(new Tank(e.clientX, e.clientY));
+    this.canvas.addEventListener('click', () => {
+      const vec = this.level.getRandomPos();
+      unitManager.add(new Unit(vec.x, vec.y, Math.random() * 10));
     });
 
+    this.level = new Level(64, 4, 0.3);
+
     keyboard.init();
-    wallsManager.init();
-    tanksManager.init();
+    levelDraw.init();
+    unitManager.init();
+
+    this.camera = unitManager.player;
 
     this.animationLoop();
   };

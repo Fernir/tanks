@@ -11,23 +11,23 @@ export const STATUS_VALID = 'valid';
 export const STATUS_GOAL = 'goal';
 export const STATUS_BLOCKED = 'blocked';
 
-const locationStatus = (locationS, locationGrid) => {
-  const gridSizeY = locationGrid.length;
-  const gridSizeX = locationGrid[0].length;
+const locationStatus = (locationS, locationGrid, size) => {
+  const gridSizeY = size;
+  const gridSizeX = size;
   const dftS = locationS.distanceFromTop;
   const dflS = locationS.distanceFromLeft;
 
   if (locationS.distanceFromLeft < 0 || locationS.distanceFromLeft >= gridSizeX || locationS.distanceFromTop < 0 || locationS.distanceFromTop >= gridSizeY) {
     return STATUS_INVALID;
-  } else if (locationGrid[dftS][dflS] === 99) {
+  } else if (locationGrid[dftS * size + dflS] === 99) {
     return STATUS_GOAL;
-  } else if (locationGrid[dftS][dflS] !== 0) {
+  } else if (locationGrid[dftS * size + dflS] !== 0) {
     return STATUS_BLOCKED;
   }
   return STATUS_VALID;
 };
 
-const exploreInDirection = (currentLocation, direction, directionGrid, debug = false) => {
+const exploreInDirection = (currentLocation, direction, directionGrid, size) => {
   const newPath = currentLocation.path.slice();
   newPath.push(direction);
 
@@ -45,34 +45,22 @@ const exploreInDirection = (currentLocation, direction, directionGrid, debug = f
   }
 
   const newLocation = {distanceFromTop: dft, distanceFromLeft: dfl, path: newPath, status: 'Unknown'};
-  newLocation.status = locationStatus(newLocation, directionGrid);
+  newLocation.status = locationStatus(newLocation, directionGrid, size);
 
   if (newLocation.status === STATUS_VALID) {
-    directionGrid[newLocation.distanceFromTop][newLocation.distanceFromLeft] = STATUS_VISITED;
-
-    if (debug) {
-      const ctx = game.ctx;
-
-      ctx.beginPath();
-      // noinspection JSUndefinedPropertyAssignment
-      ctx.lineWidth = 1;
-      // noinspection JSUndefinedPropertyAssignment
-      ctx.strokeStyle = '#0000ff';
-      ctx.rect((newLocation.distanceFromLeft * game.spriteSize) + 1, (newLocation.distanceFromTop * game.spriteSize) + 1, game.spriteSize - 1, game.spriteSize - 1);
-      ctx.stroke();
-    }
+    directionGrid[newLocation.distanceFromTop * size + newLocation.distanceFromLeft] = STATUS_VISITED;
   }
 
   return newLocation;
 };
 
-export const findShortestPath = (x, y, x2, y2, origGrid, debug = false) => {
+export const findShortestPath = (x, y, x2, y2, origGrid, size) => {
   const distanceFromTop = x || 0;
   const distanceFromLeft = y || 0;
 
-  const grid = JSON.parse(JSON.stringify(origGrid));
+  const grid = origGrid.slice();
 
-  grid[x2][y2] = 99;
+  grid[x2 * size + y2] = 99;
 
   const location = {distanceFromTop, distanceFromLeft, path: [], status: 'Start'};
 
@@ -82,7 +70,7 @@ export const findShortestPath = (x, y, x2, y2, origGrid, debug = false) => {
     const currentLocation = queue.shift();
 
     // Explore top
-    let newLocation = exploreInDirection(currentLocation, WAY_TOP, grid, debug);
+    let newLocation = exploreInDirection(currentLocation, WAY_TOP, grid, size);
     if (newLocation.status === STATUS_GOAL) {
       return newLocation.path;
     } else if (newLocation.status === STATUS_VALID) {
@@ -90,7 +78,7 @@ export const findShortestPath = (x, y, x2, y2, origGrid, debug = false) => {
     }
 
     // Explore right
-    newLocation = exploreInDirection(currentLocation, WAY_RIGHT, grid, debug);
+    newLocation = exploreInDirection(currentLocation, WAY_RIGHT, grid, size);
     if (newLocation.status === STATUS_GOAL) {
       return newLocation.path;
     } else if (newLocation.status === STATUS_VALID) {
@@ -98,7 +86,7 @@ export const findShortestPath = (x, y, x2, y2, origGrid, debug = false) => {
     }
 
     // Explore bottom
-    newLocation = exploreInDirection(currentLocation, WAY_BOTTOM, grid, debug);
+    newLocation = exploreInDirection(currentLocation, WAY_BOTTOM, grid, size);
     if (newLocation.status === STATUS_GOAL) {
       return newLocation.path;
     } else if (newLocation.status === STATUS_VALID) {
@@ -106,7 +94,7 @@ export const findShortestPath = (x, y, x2, y2, origGrid, debug = false) => {
     }
 
     // Explore left
-    newLocation = exploreInDirection(currentLocation, WAY_LEFT, grid, debug);
+    newLocation = exploreInDirection(currentLocation, WAY_LEFT, grid, size);
     if (newLocation.status === STATUS_GOAL) {
       return newLocation.path;
     } else if (newLocation.status === STATUS_VALID) {
